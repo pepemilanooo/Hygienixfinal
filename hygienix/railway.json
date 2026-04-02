@@ -1,14 +1,8 @@
 {
-  "services": [
-    {
-      "name": "api",
-      "path": "apps/api",
-      "start": "npm start",
-      "build": "npm run build",
-      "env": {
-        "PORT": "4000",
-        "NODE_ENV": "production"
-      }
-    }
-  ]
+  "build": {
+    "builder": "nixpacks"
+  },
+  "deploy": {
+    "startCommand": "npm run build && npm start --workspace=@hygienix/api"
+  }
 }
