@@ -1,0 +1,19 @@
+[phases.setup]
+nixPkgs = [
+  "chromium",
+  "nss",
+  "freetype",
+  "harfbuzz",
+  "ca-certificates",
+  "liberation_ttf",
+  "fontconfig"
+]
+
+[phases.install]
+cmds = ["npm install"]
+
+[phases.build]
+cmds = ["npm run build -w @hygienix/database", "npm run build"]
+
+[start]
+cmd = "node dist/index.js"

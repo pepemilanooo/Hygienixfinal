@@ -1,0 +1,452 @@
+// ─────────────────────────────────────────────────────────────────────────────
+// HYGIENIX — Prisma Schema  v1.0
+// Database: PostgreSQL 15
+// ─────────────────────────────────────────────────────────────────────────────
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../node_modules/.prisma/client"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── ENUMS ───────────────────────────────────────────────────────────────────
+
+enum Role {
+  ADMIN
+  MANAGER
+  TECHNICIAN
+}
+
+enum ClientType {
+  PRIVATE
+  CONDO
+  COMPANY
+  RESTAURANT
+  HOTEL
+  SHOP
+  INDUSTRY
+  PA
+  OTHER
+}
+
+enum ClientStatus {
+  ACTIVE
+  SUSPENDED
+  ARCHIVED
+}
+
+enum SiteStatus {
+  ACTIVE
+  MAINTENANCE
+  SUSPENDED
+  ARCHIVED
+}
+
+enum CardPointType {
+  TRAP
+  BAIT
+  UV_LAMP
+  MONITOR
+  CHECK_POINT
+  CRITICAL_AREA
+  SENSITIVE_ACCESS
+}
+
+enum CardPointStatus {
+  OK
+  ATTENTION
+  CRITICAL
+  INACTIVE
+}
+
+enum InterventionStatus {
+  PLANNED
+  ASSIGNED
+  IN_PROGRESS
+  COMPLETED
+  CLOSED
+  ARCHIVED
+}
+
+enum ServiceType {
+  DISINFECTION
+  RODENT_CONTROL
+  COCKROACH
+  MONITORING
+  SANIFICATION
+  INSPECTION
+  OTHER
+}
+
+enum Priority {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
+}
+
+enum PhotoType {
+  BEFORE
+  AFTER
+  GENERIC
+}
+
+enum PointOutcome {
+  OK
+  ATTENTION
+  CRITICAL
+  NOT_CHECKED
+}
+
+enum ProductCategory {
+  INSECTICIDE
+  RODENTICIDE
+  FUNGICIDE
+  DISINFECTANT
+  BAIT
+  OTHER
+}
+
+enum ProductStatus {
+  ACTIVE
+  OUT_OF_STOCK
+  ARCHIVED
+}
+
+enum AttachmentEntityType {
+  CLIENT
+  SITE
+  SITE_CARD_POINT
+  INTERVENTION
+}
+
+// ─── MODELS ──────────────────────────────────────────────────────────────────
+
+model User {
+  id           String    @id @default(uuid())
+  email        String    @unique
+  passwordHash String
+  firstName    String
+  lastName     String
+  role         Role      @default(TECHNICIAN)
+  phone        String?
+  avatarUrl    String?
+  isActive     Boolean   @default(true)
+  lastLoginAt  DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  deletedAt    DateTime?
+
+  // Relations
+  refreshTokens         RefreshToken[]
+  createdClients        Client[]             @relation("ClientCreatedBy")
+  createdInterventions  Intervention[]       @relation("InterventionCreatedBy")
+  assignedInterventions Intervention[]       @relation("InterventionTechnician")
+  interventionPhotos    InterventionPhoto[]
+  interventionPoints    InterventionPoint[]
+  auditLogs             AuditLog[]
+  uploadedAttachments   Attachment[]
+
+  @@index([email])
+  @@index([role])
+  @@index([deletedAt])
+  @@map("users")
+}
+
+model RefreshToken {
+  id        String    @id @default(uuid())
+  userId    String
+  token     String    @unique
+  expiresAt DateTime
+  revokedAt DateTime?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([token])
+  @@index([userId])
+  @@map("refresh_tokens")
+}
+
+model Client {
+  id           String       @id @default(uuid())
+  businessName String
+  type         ClientType   @default(COMPANY)
+  taxCode      String?
+  vatNumber    String?
+  contactName  String?
+  contactPhone String?
+  contactEmail String?
+  address      String?
+  city         String?
+  province     String?
+  zip          String?
+  notes        String?
+  status       ClientStatus @default(ACTIVE)
+  createdById  String?
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+  deletedAt    DateTime?
+
+  // Relations
+  createdBy     User?          @relation("ClientCreatedBy", fields: [createdById], references: [id])
+  sites         Site[]
+  interventions Intervention[]
+  attachments   Attachment[]
+
+  @@index([status])
+  @@index([type])
+  @@index([deletedAt])
+  @@map("clients")
+}
+
+model Site {
+  id                String     @id @default(uuid())
+  clientId          String
+  name              String
+  type              String?
+  address           String?
+  city              String?
+  province          String?
+  zip               String?
+  lat               Decimal?   @db.Decimal(10, 8)
+  lng               Decimal?   @db.Decimal(11, 8)
+  localContactName  String?
+  localContactPhone String?
+  criticalZones     String?
+  operationalNotes  String?
+  status            SiteStatus @default(ACTIVE)
+  createdAt         DateTime   @default(now())
+  updatedAt         DateTime   @updatedAt
+  deletedAt         DateTime?
+
+  // Relations
+  client        Client         @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  siteCard      SiteCard?
+  interventions Intervention[]
+  attachments   Attachment[]
+
+  @@index([clientId])
+  @@index([status])
+  @@index([deletedAt])
+  @@map("sites")
+}
+
+model SiteCard {
+  id              String   @id @default(uuid())
+  siteId          String   @unique
+  baseImageUrl    String?
+  baseImageWidth  Int?
+  baseImageHeight Int?
+  version         Int      @default(1)
+  notes           String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Relations
+  site      Site              @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  points    SiteCardPoint[]
+  revisions SiteCardRevision[]
+
+  @@map("site_cards")
+}
+
+model SiteCardRevision {
+  id         String   @id @default(uuid())
+  siteCardId String
+  version    Int
+  snapshot   Json
+  createdAt  DateTime @default(now())
+
+  siteCard SiteCard @relation(fields: [siteCardId], references: [id], onDelete: Cascade)
+
+  @@index([siteCardId])
+  @@map("site_card_revisions")
+}
+
+model SiteCardPoint {
+  id          String          @id @default(uuid())
+  siteCardId  String
+  code        String
+  type        CardPointType
+  label       String?
+  description String?
+  instructions String?
+  frequency   String?
+  positionX   Decimal         @db.Decimal(6, 3)
+  positionY   Decimal         @db.Decimal(6, 3)
+  status      CardPointStatus @default(OK)
+  lastNotes   String?
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+  deletedAt   DateTime?
+
+  // Relations
+  siteCard            SiteCard            @relation(fields: [siteCardId], references: [id], onDelete: Cascade)
+  interventionPoints  InterventionPoint[]
+  attachments         Attachment[]
+
+  @@index([siteCardId])
+  @@index([deletedAt])
+  @@map("site_card_points")
+}
+
+model Intervention {
+  id                     String             @id @default(uuid())
+  clientId               String
+  siteId                 String
+  assignedTechnicianId   String?
+  createdById            String?
+  serviceType            ServiceType        @default(INSPECTION)
+  status                 InterventionStatus @default(PLANNED)
+  priority               Priority           @default(NORMAL)
+  scheduledAt            DateTime
+  scheduledEndAt         DateTime?
+  startedAt              DateTime?
+  completedAt            DateTime?
+  closedAt               DateTime?
+  description            String?
+  operationalNotes       String?
+  outcome                String?
+  technicianSignatureUrl String?
+  clientSignatureUrl     String?
+  reportPdfUrl           String?
+  isRecurring            Boolean            @default(false)
+  recurringPattern       Json?
+  parentInterventionId   String?
+  createdAt              DateTime           @default(now())
+  updatedAt              DateTime           @updatedAt
+  deletedAt              DateTime?
+
+  // Relations
+  client             Client               @relation(fields: [clientId], references: [id])
+  site               Site                 @relation(fields: [siteId], references: [id])
+  assignedTechnician User?                @relation("InterventionTechnician", fields: [assignedTechnicianId], references: [id])
+  createdBy          User?                @relation("InterventionCreatedBy", fields: [createdById], references: [id])
+  parentIntervention Intervention?        @relation("RecurringParent", fields: [parentInterventionId], references: [id])
+  childInterventions Intervention[]       @relation("RecurringParent")
+  photos             InterventionPhoto[]
+  products           InterventionProduct[]
+  points             InterventionPoint[]
+
+  @@index([clientId])
+  @@index([siteId])
+  @@index([assignedTechnicianId])
+  @@index([status])
+  @@index([scheduledAt])
+  @@index([deletedAt])
+  @@map("interventions")
+}
+
+model InterventionPhoto {
+  id             String    @id @default(uuid())
+  interventionId String
+  url            String
+  type           PhotoType @default(GENERIC)
+  caption        String?
+  uploadedById   String?
+  createdAt      DateTime  @default(now())
+
+  intervention Intervention @relation(fields: [interventionId], references: [id], onDelete: Cascade)
+  uploadedBy   User?        @relation(fields: [uploadedById], references: [id])
+
+  @@index([interventionId])
+  @@map("intervention_photos")
+}
+
+model InterventionPoint {
+  id              String       @id @default(uuid())
+  interventionId  String
+  siteCardPointId String
+  outcome         PointOutcome @default(NOT_CHECKED)
+  notes           String?
+  photoUrls       String[]     @default([])
+  checkedAt       DateTime?
+  checkedById     String?
+
+  intervention  Intervention  @relation(fields: [interventionId], references: [id], onDelete: Cascade)
+  siteCardPoint SiteCardPoint @relation(fields: [siteCardPointId], references: [id])
+  checkedBy     User?         @relation(fields: [checkedById], references: [id])
+
+  @@unique([interventionId, siteCardPointId])
+  @@index([interventionId])
+  @@map("intervention_points")
+}
+
+model Product {
+  id                 String          @id @default(uuid())
+  name               String
+  activeIngredient   String?
+  category           ProductCategory @default(OTHER)
+  manufacturer       String?
+  registrationNumber String?
+  safetySheetUrl     String?
+  status             ProductStatus   @default(ACTIVE)
+  createdAt          DateTime        @default(now())
+  updatedAt          DateTime        @updatedAt
+  deletedAt          DateTime?
+
+  interventionProducts InterventionProduct[]
+
+  @@index([status])
+  @@index([deletedAt])
+  @@map("products")
+}
+
+model InterventionProduct {
+  id             String  @id @default(uuid())
+  interventionId String
+  productId      String
+  quantity       Decimal @db.Decimal(10, 3)
+  unit           String  @default("ml")
+  batchNumber    String?
+  notes          String?
+
+  intervention Intervention @relation(fields: [interventionId], references: [id], onDelete: Cascade)
+  product      Product      @relation(fields: [productId], references: [id])
+
+  @@index([interventionId])
+  @@map("intervention_products")
+}
+
+model Attachment {
+  id              String               @id @default(uuid())
+  entityType      AttachmentEntityType
+  entityId        String
+  filename        String
+  url             String
+  mimeType        String?
+  sizeBytes       Int?
+  uploadedById    String?
+  createdAt       DateTime             @default(now())
+
+  uploadedBy    User?          @relation(fields: [uploadedById], references: [id])
+  client        Client?        @relation(fields: [entityId], references: [id], map: "attachment_client_fk")
+  site          Site?          @relation(fields: [entityId], references: [id], map: "attachment_site_fk")
+  siteCardPoint SiteCardPoint? @relation(fields: [entityId], references: [id], map: "attachment_point_fk")
+
+  @@index([entityType, entityId])
+  @@map("attachments")
+}
+
+model AuditLog {
+  id         String   @id @default(uuid())
+  userId     String?
+  action     String
+  entityType String?
+  entityId   String?
+  payload    Json?
+  ipAddress  String?
+  createdAt  DateTime @default(now())
+
+  user User? @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([entityType, entityId])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
