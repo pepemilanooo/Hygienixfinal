@@ -3,6 +3,6 @@
     "builder": "nixpacks"
   },
   "deploy": {
-    "startCommand": "npm run build && npm start --workspace=@hygienix/api"
+    "startCommand": "npm run build --workspace=@hygienix/api && npm start --workspace=@hygienix/api"
   }
 }
