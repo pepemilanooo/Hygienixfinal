@@ -2,13 +2,14 @@
   "extends": "../../tsconfig.json",
   "compilerOptions": {
     "outDir": "./dist",
-    "rootDir": "./src",
+        "rootDir": ".",
     "baseUrl": ".",
     "paths": {
       "@hygienix/database": ["../../packages/database/src/index.ts"],
       "@hygienix/types": ["../../packages/types/src/index.ts"],
       "@hygienix/validators": ["../../packages/validators/src/index.ts"]
-    }
+    },
+    "noImplicitAny": false
   },
   "include": ["src/**/*"],
   "exclude": ["node_modules", "dist"]
