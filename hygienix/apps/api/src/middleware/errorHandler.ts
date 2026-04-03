@@ -9,7 +9,7 @@ export class AppError extends Error {
   ) {
     super(message);
     this.name = 'AppError';
-  }
+ 
 }
 
 export function errorHandler(
@@ -28,10 +28,10 @@ export function errorHandler(
 
   // Errori Prisma comuni
   if (err.constructor.name === 'PrismaClientKnownRequestError') {
-    const prismaErr = err as { code: string };
+    const prismaErr = err as unknown as { code: string };
     if (prismaErr.code === 'P2002') {
       res.status(409).json({ success: false, error: { code: 'DUPLICATE', message: 'Record già esistente con questi dati' } });
-      return;
+    
     }
     if (prismaErr.code === 'P2025') {
       res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Record non trovato' } });
